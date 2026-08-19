@@ -34,7 +34,7 @@ app.use(cors({
     "http://localhost:3000",
     "http://localhost:3001",
     "https://placebo-plm-js-v1.vercel.app",
-    "https://placebo-plm-js-v1-git-main-studio-3847s-projects.vercel.app/"
+    "https://placebo-plm-js-v1-ozm3344co-studio-3847s-projects.vercel.app/login"
     // "http://localhost:5500",
   ],
   credentials: true
