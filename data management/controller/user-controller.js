@@ -354,8 +354,53 @@ exports.userController = {
   },
   async deleteUser(req, res) {
     const { userid } = req.params;
+    const { requester_id } = req.body || {};
 
     try {
+      // Authorization: requester_id must be provided
+      if (!requester_id) {
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized: requester_id is required"
+        });
+      }
+
+      // Look up the requester to verify their role
+      const requesterResult = await db.query(
+        `SELECT id, role FROM users WHERE id = $1`,
+        [requester_id]
+      );
+
+      if (requesterResult.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized: requester not found"
+        });
+      }
+
+      const requester = requesterResult.rows[0];
+
+      if (requester.role !== 'owner') {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: only owners can delete users"
+        });
+      }
+
+      // Prevent self-deletion
+      if (String(requester_id) === String(userid)) {
+        return res.status(400).json({
+          success: false,
+          error: "Cannot delete your own account"
+        });
+      }
+
+      // Nullify audit_log references to preserve audit history safely
+      await db.query(
+        `UPDATE audit_logs SET user_id = NULL WHERE user_id = $1`,
+        [userid]
+      );
+
       const result = await db.query(
         `DELETE FROM users
          WHERE id = $1
