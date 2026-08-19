@@ -1,0 +1,50 @@
+[
+  {
+    "id": "1",
+    "org_id": "org-001",
+    "name": "Classic Wool Coat",
+    "style_code": "WC-001",
+    "sku": "WC-001-BLK",
+    "category": "outerwear",
+    "season": "fall_winter",
+    "colors": ["Black", "Charcoal"],
+    "sizes": ["S", "M", "L", "XL"],
+    "pricing_multiplier": 3.5,
+    "selling_price": 420,
+    "currency": "EUR",
+    "notes": "Classic wool coat with a relaxed fit.",
+    "status": "active"
+  },
+  {
+    "id": "2",
+    "org_id": "org-001",
+    "name": "Cotton Rib Sweater",
+    "style_code": "RS-002",
+    "sku": "RS-002-NAT",
+    "category": "knitwear",
+    "season": "fall_winter",
+    "colors": ["Natural", "Brown", "Navy"],
+    "sizes": ["S", "M", "L"],
+    "pricing_multiplier": 3.2,
+    "selling_price": 180,
+    "currency": "EUR",
+    "notes": "Heavy rib-knit cotton sweater.",
+    "status": "active"
+  },
+  {
+    "id": "3",
+    "org_id": "org-001",
+    "name": "Relaxed Linen Shirt",
+    "style_code": "LS-003",
+    "sku": "LS-003-WHT",
+    "category": "tops",
+    "season": "spring_summer",
+    "colors": ["White", "Beige", "Light Blue"],
+    "sizes": ["S", "M", "L", "XL"],
+    "pricing_multiplier": 3.5,
+    "selling_price": 145,
+    "currency": "EUR",
+    "notes": "Lightweight linen shirt for spring and summer.",
+    "status": "active"
+  }
+]
