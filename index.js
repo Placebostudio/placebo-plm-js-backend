@@ -17,6 +17,11 @@ const { audit_logRouter } = require("./data management/router/audit_log-router.j
 const { currencyRouter } = require("./data management/router/currency-router.js")
 const { attachmentRouter } = require("./data management/router/attachment-router.js")
 
+const skuStructureRouter =
+    require("./data management/router/sku-structure-router");
+
+app.use("/api/sku", skuStructureRouter);
+
 process.on("uncaughtException", (err) => {
     console.error("UNCAUGHT: ", err);
 });
