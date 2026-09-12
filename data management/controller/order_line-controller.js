@@ -7,7 +7,7 @@ async function getUser(userId) {
         return null;
     }
 
-    const result = await dbConnection.query(
+    const result = await db.query(
         `SELECT id, role
          FROM users
          WHERE id = $1`,
