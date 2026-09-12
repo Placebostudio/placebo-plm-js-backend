@@ -18,7 +18,7 @@ const { currencyRouter } = require("./data management/router/currency-router.js"
 const { attachmentRouter } = require("./data management/router/attachment-router.js")
 
 const skuStructureRouter =
-    require("./data management/router/sku-structure-router");
+    require("./sku-table-manager.js");
 
 app.use("/api/sku", skuStructureRouter);
 
