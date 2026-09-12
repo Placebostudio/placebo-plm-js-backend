@@ -20,7 +20,6 @@ const { attachmentRouter } = require("./data management/router/attachment-router
 const skuStructureRouter =
     require("./sku-table-manager.js");
 
-app.use("/api/sku", skuStructureRouter);
 
 process.on("uncaughtException", (err) => {
     console.error("UNCAUGHT: ", err);
@@ -68,3 +67,4 @@ app.use("/api/order_lines", order_lineRouter)
 app.use("/api/audit_logs", audit_logRouter)
 app.use("/api/currencies", currencyRouter)
 app.use("/api/attachments", attachmentRouter)
+app.use("/api/sku", skuStructureRouter);
