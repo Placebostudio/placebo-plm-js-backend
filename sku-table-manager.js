@@ -1,4 +1,6 @@
 const db = require("./db_connection.js");
+const cors = require("cors");
+const app = express()
 
 const skurouter = require("express").Router();
 
@@ -6,6 +8,16 @@ const skurouter = require("express").Router();
 // ============================================================
 // GET SKU STRUCTURE
 // ============================================================
+
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://placebo-plm-js.vercel.app",
+    "http://localhost:5173"
+  ],
+  credentials: true
+}));
 
 skurouter.get("/", async (req, res) => {
 
