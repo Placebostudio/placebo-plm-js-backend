@@ -8,22 +8,56 @@ const supabase = createClient(
 
 const BUCKET_NAME = "attachments";
 
+
+// ============================================================
+// GET USER
+// ============================================================
+
+async function getUser(userId) {
+
+    if (!userId) {
+        return null;
+    }
+
+    const result = await db.query(
+        `SELECT id, org_id, role
+         FROM users
+         WHERE id = $1`,
+        [userId]
+    );
+
+    return result.rows[0] || null;
+}
+
+
 const attachmentController = {
 
-    // =========================
+    // ========================================================
     // GET ALL ATTACHMENTS
-    // =========================
+    // ========================================================
 
-
-    async getAttachments(req, res) 
-    {
+    async getAttachments(req, res) {
 
         try {
+
+            const user = await getUser(req.query.user_id);
+
+            if (!user) {
+
+                return res.status(401).json({
+                    error: "Unauthorized"
+                });
+            }
+
+
             const result = await db.query(
                 `SELECT *
                  FROM attachments
-                 ORDER BY created_at DESC`
+                 WHERE org_id = $1
+                 ORDER BY created_at DESC`,
+                [user.org_id]
             );
+
 
             const attachments = result.rows.map((attachment) => {
 
@@ -36,6 +70,7 @@ const attachmentController = {
                     url: data.publicUrl
                 };
             });
+
 
             res.json(attachments);
 
@@ -50,20 +85,35 @@ const attachmentController = {
     },
 
 
-    // =========================
+    // ========================================================
     // GET ONE ATTACHMENT
-    // =========================
+    // ========================================================
 
-    async getAttachment(req, res) 
-    {
+    async getAttachment(req, res) {
+
         try {
+
+            const user = await getUser(req.query.user_id);
+
+            if (!user) {
+
+                return res.status(401).json({
+                    error: "Unauthorized"
+                });
+            }
+
 
             const result = await db.query(
                 `SELECT *
                  FROM attachments
-                 WHERE id = $1`,
-                [req.params.attachmentid]
+                 WHERE id = $1
+                 AND org_id = $2`,
+                [
+                    req.params.attachmentid,
+                    user.org_id
+                ]
             );
+
 
             if (result.rows.length === 0) {
 
@@ -72,11 +122,14 @@ const attachmentController = {
                 });
             }
 
+
             const attachment = result.rows[0];
+
 
             const { data } = supabase.storage
                 .from(BUCKET_NAME)
                 .getPublicUrl(attachment.url);
+
 
             res.json({
                 ...attachment,
@@ -94,9 +147,9 @@ const attachmentController = {
     },
 
 
-    // =========================
+    // ========================================================
     // ADD / REPLACE / REMOVE
-    // =========================
+    // ========================================================
 
     async addAttachment(req, res) {
 
@@ -105,13 +158,39 @@ const attachmentController = {
             const {
                 entity_type,
                 entity_id,
-                uploaded_by
+                uploaded_by,
+                user_id
             } = req.body;
 
 
-            // =========================
+            // ====================================================
+            // AUTHORIZATION
+            // ====================================================
+
+            const user = await getUser(user_id);
+
+            if (!user) {
+
+                return res.status(401).json({
+                    error: "Unauthorized"
+                });
+            }
+
+
+            if (
+                user.role === "viewer" ||
+                user.role === "supplier"
+            ) {
+
+                return res.status(403).json({
+                    error: "You do not have permission to modify attachments"
+                });
+            }
+
+
+            // ====================================================
             // VALIDATE ENTITY
-            // =========================
+            // ====================================================
 
             if (
                 !["product", "material"].includes(entity_type)
@@ -123,31 +202,33 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // CHECK EXISTING IMAGE
-            // =========================
+            // ====================================================
 
             const existing = await db.query(
                 `SELECT *
                  FROM attachments
                  WHERE entity_type = $1
                  AND entity_id = $2
+                 AND org_id = $3
                  LIMIT 1`,
                 [
                     entity_type,
-                    entity_id
+                    entity_id,
+                    user.org_id
                 ]
             );
+
 
             const oldAttachment =
                 existing.rows[0] || null;
 
 
-            // =========================
+            // ====================================================
             // NO NEW IMAGE
-            // =========================
-            // YES IMAGE + NO IMAGE
             // -> REMOVE IMAGE
+            // ====================================================
 
             if (!req.file) {
 
@@ -175,8 +256,12 @@ const attachmentController = {
 
                 await db.query(
                     `DELETE FROM attachments
-                     WHERE id = $1`,
-                    [oldAttachment.id]
+                     WHERE id = $1
+                     AND org_id = $2`,
+                    [
+                        oldAttachment.id,
+                        user.org_id
+                    ]
                 );
 
 
@@ -187,9 +272,9 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // VALIDATE FILE TYPE
-            // =========================
+            // ====================================================
 
             const allowedTypes = [
                 "image/jpeg",
@@ -198,6 +283,7 @@ const attachmentController = {
                 "image/gif",
                 "application/pdf"
             ];
+
 
             if (
                 !allowedTypes.includes(
@@ -211,9 +297,9 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // VALIDATE FILE SIZE
-            // =========================
+            // ====================================================
 
             if (req.file.size > 26214400) {
 
@@ -223,11 +309,9 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // REMOVE OLD IMAGE
-            // =========================
-            // YES IMAGE + NEW IMAGE
-            // -> REMOVE OLD IMAGE
+            // ====================================================
 
             if (oldAttachment) {
 
@@ -245,9 +329,9 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // CREATE STORAGE PATH
-            // =========================
+            // ====================================================
 
             const fileName =
                 `${Date.now()}-${req.file.originalname}`;
@@ -256,9 +340,9 @@ const attachmentController = {
                 `${entity_type}/${entity_id}/${fileName}`;
 
 
-            // =========================
+            // ====================================================
             // UPLOAD NEW IMAGE
-            // =========================
+            // ====================================================
 
             const { error: uploadError } =
                 await supabase.storage
@@ -280,9 +364,9 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // UPDATE EXISTING ROW
-            // =========================
+            // ====================================================
 
             let result;
 
@@ -297,6 +381,7 @@ const attachmentController = {
                         size_bytes = $4,
                         uploaded_by = $5
                      WHERE id = $6
+                     AND org_id = $7
                      RETURNING *`,
                     [
                         req.file.originalname,
@@ -304,20 +389,23 @@ const attachmentController = {
                         req.file.mimetype,
                         req.file.size,
                         uploaded_by || null,
-                        oldAttachment.id
+                        oldAttachment.id,
+                        user.org_id
                     ]
                 );
 
             }
 
-            // =========================
+
+            // ====================================================
             // CREATE NEW ROW
-            // =========================
+            // ====================================================
 
             else {
 
                 result = await db.query(
                     `INSERT INTO attachments (
+                        org_id,
                         entity_type,
                         entity_id,
                         file_name,
@@ -333,10 +421,12 @@ const attachmentController = {
                         $4,
                         $5,
                         $6,
-                        $7
+                        $7,
+                        $8
                     )
                     RETURNING *`,
                     [
+                        user.org_id,
                         entity_type,
                         entity_id,
                         req.file.originalname,
@@ -349,9 +439,9 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // PUBLIC URL
-            // =========================
+            // ====================================================
 
             const { data } = supabase.storage
                 .from(BUCKET_NAME)
@@ -375,9 +465,9 @@ const attachmentController = {
     },
 
 
-    // =========================
+    // ========================================================
     // UPDATE ATTACHMENT
-    // =========================
+    // ========================================================
 
     async updateAttachment(req, res) {
 
@@ -386,11 +476,39 @@ const attachmentController = {
             const {
                 file_name,
                 content_type,
-                size_bytes
+                size_bytes,
+                user_id
             } = req.body;
 
 
-            // Validate content_type if provided
+            // ====================================================
+            // AUTHORIZATION
+            // ====================================================
+
+            const user = await getUser(user_id);
+
+            if (!user) {
+
+                return res.status(401).json({
+                    error: "Unauthorized"
+                });
+            }
+
+
+            if (
+                user.role === "viewer" ||
+                user.role === "supplier"
+            ) {
+
+                return res.status(403).json({
+                    error: "You do not have permission to modify attachments"
+                });
+            }
+
+
+            // ====================================================
+            // VALIDATE CONTENT TYPE
+            // ====================================================
 
             const allowedTypes = [
                 "image/jpeg",
@@ -399,6 +517,7 @@ const attachmentController = {
                 "image/gif",
                 "application/pdf"
             ];
+
 
             if (
                 content_type !== undefined &&
@@ -411,7 +530,9 @@ const attachmentController = {
             }
 
 
-            // Validate size if provided
+            // ====================================================
+            // VALIDATE SIZE
+            // ====================================================
 
             if (
                 size_bytes !== undefined &&
@@ -425,6 +546,10 @@ const attachmentController = {
             }
 
 
+            // ====================================================
+            // UPDATE
+            // ====================================================
+
             const result = await db.query(
                 `UPDATE attachments
                  SET
@@ -432,12 +557,14 @@ const attachmentController = {
                     content_type = COALESCE($2, content_type),
                     size_bytes = COALESCE($3, size_bytes)
                  WHERE id = $4
+                 AND org_id = $5
                  RETURNING *`,
                 [
                     file_name,
                     content_type,
                     size_bytes,
-                    req.params.attachmentid
+                    req.params.attachmentid,
+                    user.org_id
                 ]
             );
 
@@ -451,6 +578,7 @@ const attachmentController = {
 
 
             const attachment = result.rows[0];
+
 
             const { data } = supabase.storage
                 .from(BUCKET_NAME)
@@ -475,19 +603,49 @@ const attachmentController = {
     },
 
 
-    // =========================
+    // ========================================================
     // DELETE ATTACHMENT
-    // =========================
+    // ========================================================
 
     async deleteAttachment(req, res) {
 
         try {
 
+            const user = await getUser(req.query.user_id);
+
+            if (!user) {
+
+                return res.status(401).json({
+                    error: "Unauthorized"
+                });
+            }
+
+
+            // ====================================================
+            // OWNER ONLY
+            // ====================================================
+
+            if (user.role !== "owner") {
+
+                return res.status(403).json({
+                    error: "Only the owner can delete attachments"
+                });
+            }
+
+
+            // ====================================================
+            // GET ATTACHMENT
+            // ====================================================
+
             const result = await db.query(
                 `SELECT *
                  FROM attachments
-                 WHERE id = $1`,
-                [req.params.attachmentid]
+                 WHERE id = $1
+                 AND org_id = $2`,
+                [
+                    req.params.attachmentid,
+                    user.org_id
+                ]
             );
 
 
@@ -502,9 +660,9 @@ const attachmentController = {
             const attachment = result.rows[0];
 
 
-            // =========================
+            // ====================================================
             // DELETE STORAGE FILE
-            // =========================
+            // ====================================================
 
             const { error: storageError } =
                 await supabase.storage
@@ -519,15 +677,19 @@ const attachmentController = {
             }
 
 
-            // =========================
+            // ====================================================
             // DELETE DATABASE ROW
-            // =========================
+            // ====================================================
 
             const deleted = await db.query(
                 `DELETE FROM attachments
                  WHERE id = $1
+                 AND org_id = $2
                  RETURNING *`,
-                [req.params.attachmentid]
+                [
+                    req.params.attachmentid,
+                    user.org_id
+                ]
             );
 
 

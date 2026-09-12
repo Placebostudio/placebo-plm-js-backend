@@ -1,9 +1,37 @@
 const db = require("../../db_connection");
 const argon2 = require("argon2");
 
+
+async function getUser(userId) {
+
+  if (!userId) {
+    return null;
+  }
+
+  const result = await db.query(
+    `SELECT
+      id,
+      role
+     FROM users
+     WHERE id = $1`,
+    [userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+
 exports.userController = {
+
+  // ============================================================
+  // GET ALL USERS
+  // No role restriction
+  // ============================================================
+
   async getUsers(req, res) {
+
     try {
+
       const result = await db.query(
         `SELECT
           id,
@@ -22,6 +50,7 @@ exports.userController = {
       res.json(result.rows);
 
     } catch (err) {
+
       console.error(err);
 
       res.status(500).json({
@@ -29,10 +58,22 @@ exports.userController = {
       });
     }
   },
+
+
+  // ============================================================
+  // GET ONE USER
+  // No role restriction
+  // ============================================================
+
   async getUser(req, res) {
-    const { userid } = req.params;
+
+    const {
+      userid
+    } = req.params;
+
 
     try {
+
       const result = await db.query(
         `SELECT
           id,
@@ -49,17 +90,22 @@ exports.userController = {
         [userid]
       );
 
+
       const user = result.rows[0];
 
+
       if (!user) {
+
         return res.status(404).json({
           error: "User not found"
         });
       }
 
+
       res.json(user);
 
     } catch (err) {
+
       console.error(err);
 
       res.status(500).json({
@@ -67,7 +113,15 @@ exports.userController = {
       });
     }
   },
+
+
+  // ============================================================
+  // ADD USER
+  // No role restriction
+  // ============================================================
+
   async addUser(req, res) {
+
     const {
       username,
       email,
@@ -75,21 +129,27 @@ exports.userController = {
       name
     } = req.body;
 
+
     try {
+
       if (!username || !email || !password) {
+
         return res.status(400).json({
           success: false,
           error: "Username, email and password are required"
         });
       }
 
+
       const role = "viewer";
       const supplier_id = null;
       const approved = false;
 
+
       const password_hash = await argon2.hash(password, {
         type: argon2.argon2id
       });
+
 
       const result = await db.query(
         `INSERT INTO users (
@@ -123,12 +183,14 @@ exports.userController = {
         ]
       );
 
+
       res.status(201).json({
         success: true,
         user: result.rows[0]
       });
 
     } catch (err) {
+
       console.error(err);
 
       res.status(500).json({
@@ -137,19 +199,31 @@ exports.userController = {
       });
     }
   },
+
+
+  // ============================================================
+  // LOGIN
+  // No role restriction
+  // ============================================================
+
   async login(req, res) {
+
     const {
       username,
       password
     } = req.body;
 
+
     try {
+
       if (!username || !password) {
+
         return res.status(400).json({
           success: false,
           error: "Username and password are required"
         });
       }
+
 
       const result = await db.query(
         `SELECT
@@ -169,33 +243,42 @@ exports.userController = {
         [username]
       );
 
+
       if (result.rows.length === 0) {
+
         return res.status(401).json({
           success: false,
           error: "Invalid username or password"
         });
       }
 
+
       const user = result.rows[0];
+
 
       const validPassword = await argon2.verify(
         user.password_hash,
         password
       );
 
+
       if (!validPassword) {
+
         return res.status(401).json({
           success: false,
           error: "Invalid username or password"
         });
       }
 
+
       if (!user.approved) {
+
         return res.status(403).json({
           success: false,
           error: "Please get account approved by the owner"
         });
       }
+
 
       await db.query(
         `UPDATE users
@@ -204,7 +287,9 @@ exports.userController = {
         [user.id]
       );
 
+
       delete user.password_hash;
+
 
       res.json({
         success: true,
@@ -212,16 +297,30 @@ exports.userController = {
       });
 
     } catch (err) {
+
       console.error(err);
 
       res.status(500).json({
-        success: false,
         error: err.message
       });
     }
   },
+
+
+  // ============================================================
+  // UPDATE USER
+  // OWNER ONLY
+  //
+  // user_id = the logged-in user performing the operation
+  // userid  = the user being modified
+  // ============================================================
+
   async updateUser(req, res) {
-    const { userid } = req.params;
+
+    const {
+      userid
+    } = req.params;
+
 
     const {
       username,
@@ -231,35 +330,67 @@ exports.userController = {
       role,
       supplier_id,
       last_login_at,
-      approved
+      approved,
+      user_id
     } = req.body;
 
+
     try {
+
+      const currentUser = await getUser(user_id);
+
+
+      if (!currentUser) {
+
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized"
+        });
+      }
+
+
+      if (currentUser.role !== "owner") {
+
+        return res.status(403).json({
+          success: false,
+          error: "Only the owner can update users"
+        });
+      }
+
+
       if (!role) {
+
         return res.status(400).json({
           success: false,
           error: "Role is required"
         });
       }
 
+
       if (role === "supplier" && !supplier_id) {
+
         return res.status(400).json({
           success: false,
           error: "Supplier users must have a supplier_id"
         });
       }
 
+
       const normalizedSupplierId =
         role === "supplier"
           ? supplier_id
           : null;
 
+
       let result;
 
+
       if (password) {
+
         const password_hash = await argon2.hash(password, {
           type: argon2.argon2id
         });
+
 
         result = await db.query(
           `UPDATE users
@@ -297,6 +428,7 @@ exports.userController = {
         );
 
       } else {
+
         result = await db.query(
           `UPDATE users
            SET
@@ -331,12 +463,15 @@ exports.userController = {
         );
       }
 
+
       if (result.rows.length === 0) {
+
         return res.status(404).json({
           success: false,
           error: "User not found"
         });
       }
+
 
       return res.status(200).json({
         success: true,
@@ -344,6 +479,7 @@ exports.userController = {
       });
 
     } catch (err) {
+
       console.error(err);
 
       return res.status(500).json({
@@ -352,54 +488,50 @@ exports.userController = {
       });
     }
   },
+
+
+  // ============================================================
+  // DELETE USER
+  // OWNER ONLY
+  //
+  // user_id = the logged-in user performing the operation
+  // userid  = the user being deleted
+  // ============================================================
+
   async deleteUser(req, res) {
-    const { userid } = req.params;
-    const { requester_id } = req.body || {};
+
+    const {
+      userid
+    } = req.params;
+
+
+    const {
+      user_id
+    } = req.query;
+
 
     try {
-      // Authorization: requester_id must be provided
-      if (!requester_id) {
+
+      const currentUser = await getUser(user_id);
+
+
+      if (!currentUser) {
+
         return res.status(401).json({
           success: false,
-          error: "Unauthorized: requester_id is required"
+          error: "Unauthorized"
         });
       }
 
-      // Look up the requester to verify their role
-      const requesterResult = await db.query(
-        `SELECT id, role FROM users WHERE id = $1`,
-        [requester_id]
-      );
 
-      if (requesterResult.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          error: "Unauthorized: requester not found"
-        });
-      }
+      if (currentUser.role !== "owner") {
 
-      const requester = requesterResult.rows[0];
-
-      if (requester.role !== 'owner') {
         return res.status(403).json({
           success: false,
-          error: "Forbidden: only owners can delete users"
+          error: "Only the owner can delete users"
         });
       }
 
-      // Prevent self-deletion
-      if (String(requester_id) === String(userid)) {
-        return res.status(400).json({
-          success: false,
-          error: "Cannot delete your own account"
-        });
-      }
-
-      // Nullify audit_log references to preserve audit history safely
-      await db.query(
-        `UPDATE audit_logs SET user_id = NULL WHERE user_id = $1`,
-        [userid]
-      );
 
       const result = await db.query(
         `DELETE FROM users
@@ -417,12 +549,15 @@ exports.userController = {
         [userid]
       );
 
+
       if (result.rows.length === 0) {
+
         return res.status(404).json({
           success: false,
           error: "User not found"
         });
       }
+
 
       return res.status(200).json({
         success: true,
@@ -431,6 +566,7 @@ exports.userController = {
       });
 
     } catch (err) {
+
       console.error(err);
 
       return res.status(500).json({
