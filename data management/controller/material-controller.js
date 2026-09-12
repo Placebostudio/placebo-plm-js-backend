@@ -1,4 +1,4 @@
-const { dbConnection } = require("../../db_connection")
+const db = require("../../db_connection");
 
 async function getUser(userId) {
 

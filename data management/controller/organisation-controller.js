@@ -1,4 +1,4 @@
-const { dbConnection } = require("../../db_connection")
+const db = require("../../db_connection");
 
 exports.organisationController = {
     async getOrganisations(req, res) {
