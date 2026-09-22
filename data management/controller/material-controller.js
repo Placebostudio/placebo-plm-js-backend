@@ -32,13 +32,13 @@ exports.materialController = {
             name = "",
             category = "",
             status = "",
+            spam = "",
             user_id
         } = req.query;
 
         try {
 
             if (!user_id) {
-
                 return res.status(401).json({
                     error: "user_id is required"
                 });
@@ -47,7 +47,6 @@ exports.materialController = {
             const user = await getUser(user_id);
 
             if (!user) {
-
                 return res.status(401).json({
                     error: "Unauthorized"
                 });
@@ -57,7 +56,6 @@ exports.materialController = {
             const values = [];
 
             if (name) {
-
                 values.push(`%${name}%`);
 
                 conditions.push(
@@ -66,7 +64,6 @@ exports.materialController = {
             }
 
             if (category) {
-
                 values.push(category);
 
                 conditions.push(
@@ -75,11 +72,18 @@ exports.materialController = {
             }
 
             if (status) {
-
                 values.push(status);
 
                 conditions.push(
                     `m.status = $${values.length}`
+                );
+            }
+
+            if (spam !== "") {
+                values.push(spam === "true");
+
+                conditions.push(
+                    `m.spam = $${values.length}`
                 );
             }
 
