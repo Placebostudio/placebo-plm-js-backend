@@ -294,7 +294,6 @@ exports.materialController = {
             user_id
         } = req.body;
 
-
         try {
 
             const user = await getUser(user_id);
@@ -306,7 +305,6 @@ exports.materialController = {
                 });
             }
 
-
             if (
                 user.role === "supplier" ||
                 user.role === "viewer"
@@ -317,23 +315,20 @@ exports.materialController = {
                 });
             }
 
-
             const allowedFields = [
-                'name',
-                'code',
-                'description',
-                'unit',
-                'cost',
-                'currency',
-                'supplier_id',
-                'status',
-                'spam'
+                "name",
+                "code",
+                "description",
+                "unit",
+                "unit_cost",
+                "currency",
+                "supplier_id",
+                "status",
+                "spam"
             ];
-
 
             const fields = [];
             const values = [];
-
 
             for (const field of allowedFields) {
 
@@ -347,7 +342,6 @@ exports.materialController = {
                 }
             }
 
-
             if (fields.length === 0) {
 
                 return res.status(400).json({
@@ -355,18 +349,15 @@ exports.materialController = {
                 });
             }
 
-
             values.push(materialid);
-
 
             const result = await db.query(
                 `UPDATE materials
-                 SET ${fields.join(', ')}
-                 WHERE id = $${values.length}
-                 RETURNING *`,
+             SET ${fields.join(", ")}
+             WHERE id = $${values.length}
+             RETURNING *`,
                 values
             );
-
 
             if (result.rows.length === 0) {
 
@@ -374,7 +365,6 @@ exports.materialController = {
                     error: "Material not found"
                 });
             }
-
 
             res.json(result.rows[0]);
 
