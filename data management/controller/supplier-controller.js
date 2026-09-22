@@ -26,15 +26,14 @@ exports.supplierController = {
     // ============================================================
 
     async getSuppliers(req, res) {
-
         const db = require("../../db_connection");
 
         const {
             search = "",
             status = "",
+            spam = "",
             user_id
         } = req.query;
-
 
         try {
 
@@ -47,21 +46,18 @@ exports.supplierController = {
                 });
             }
 
-
             const conditions = [];
             const values = [];
-
 
             if (search) {
 
                 values.push(`%${search}%`);
 
                 conditions.push(`(
-                    s.name ILIKE $${values.length}
-                    OR s.country ILIKE $${values.length}
-                )`);
+                s.name ILIKE $${values.length}
+                OR s.country ILIKE $${values.length}
+            )`);
             }
-
 
             if (status) {
 
@@ -72,20 +68,26 @@ exports.supplierController = {
                 );
             }
 
+            if (spam !== "") {
+
+                values.push(spam === "true");
+
+                conditions.push(
+                    `s.spam = $${values.length}`
+                );
+            }
 
             const whereClause = conditions.length
                 ? `WHERE ${conditions.join(" AND ")}`
                 : "";
 
-
             const result = await db.query(
                 `SELECT *
-                 FROM suppliers s
-                 ${whereClause}
-                 ORDER BY s.name ASC`,
+             FROM suppliers s
+             ${whereClause}
+             ORDER BY s.name ASC`,
                 values
             );
-
 
             res.json(result.rows);
 

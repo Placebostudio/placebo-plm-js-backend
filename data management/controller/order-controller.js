@@ -35,9 +35,9 @@ exports.orderController = {
             destination = "",
             color = "",
             size = "",
+            spam = "",
             user_id
         } = req.query;
-
 
         try {
 
@@ -50,10 +50,8 @@ exports.orderController = {
                 });
             }
 
-
             const conditions = [];
             const values = [];
-
 
             if (order) {
 
@@ -64,7 +62,6 @@ exports.orderController = {
                 );
             }
 
-
             if (product) {
 
                 values.push(`%${product}%`);
@@ -73,7 +70,6 @@ exports.orderController = {
                     `p.name ILIKE $${values.length}`
                 );
             }
-
 
             if (destination) {
 
@@ -84,7 +80,6 @@ exports.orderController = {
                 );
             }
 
-
             if (color) {
 
                 values.push(`%${color}%`);
@@ -93,7 +88,6 @@ exports.orderController = {
                     `ol.color ILIKE $${values.length}`
                 );
             }
-
 
             if (size) {
 
@@ -104,24 +98,30 @@ exports.orderController = {
                 );
             }
 
+            if (spam !== "") {
+
+                values.push(spam === "true");
+
+                conditions.push(
+                    `o.spam = $${values.length}`
+                );
+            }
 
             const whereClause = conditions.length
                 ? `WHERE ${conditions.join(" AND ")}`
                 : "";
 
-
             const result = await db.query(
                 `SELECT DISTINCT o.*
-                 FROM orders o
-                 LEFT JOIN order_lines ol
-                    ON o.id = ol.order_id
-                 LEFT JOIN products p
-                    ON ol.product_id = p.id
-                 ${whereClause}
-                 ORDER BY o.order_date DESC`,
+             FROM orders o
+             LEFT JOIN order_lines ol
+                ON o.id = ol.order_id
+             LEFT JOIN products p
+                ON ol.product_id = p.id
+             ${whereClause}
+             ORDER BY o.order_date DESC`,
                 values
             );
-
 
             res.json(result.rows);
 

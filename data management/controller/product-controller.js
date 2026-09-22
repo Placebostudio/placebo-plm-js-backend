@@ -30,9 +30,9 @@ exports.productController = {
         const {
             search = "",
             status = "",
+            spam = "",
             user_id
         } = req.query;
-
 
         try {
 
@@ -45,24 +45,21 @@ exports.productController = {
                 });
             }
 
-
             const conditions = [];
             const values = [];
-
 
             if (search) {
 
                 values.push(`%${search}%`);
 
                 conditions.push(`
-                    (
-                        p.name ILIKE $${values.length}
-                        OR p.style_code ILIKE $${values.length}
-                        OR p.sku ILIKE $${values.length}
-                    )
-                `);
+                (
+                    p.name ILIKE $${values.length}
+                    OR p.style_code ILIKE $${values.length}
+                    OR p.sku ILIKE $${values.length}
+                )
+            `);
             }
-
 
             if (status) {
 
@@ -73,21 +70,27 @@ exports.productController = {
                 );
             }
 
+            if (spam !== "") {
+
+                values.push(spam === "true");
+
+                conditions.push(
+                    `p.spam = $${values.length}`
+                );
+            }
 
             const whereClause = conditions.length
                 ? `WHERE ${conditions.join(" AND ")}`
                 : "";
 
-
             const result = await db.query(
                 `
-                SELECT *
-                FROM products p
-                ${whereClause}
-                `,
+            SELECT *
+            FROM products p
+            ${whereClause}
+            `,
                 values
             );
-
 
             res.json(result.rows);
 
